@@ -22,6 +22,19 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
+# ===================== 新增：解决pyarrow OverflowError清洗函数 =====================
+def clean_for_arrow(df: pd.DataFrame) -> pd.DataFrame:
+    df_out = df.copy()
+    # 清除正负无穷
+    df_out = df_out.replace([np.inf, -np.inf], np.nan)
+    # 空值填0
+    df_out = df_out.fillna(0)
+    # 数值列强制float，防止整数溢出
+    num_cols = df_out.select_dtypes(include=["number"]).columns
+    for c in num_cols:
+        df_out[c] = df_out[c].astype(float)
+    return df_out
+
 # ========== session_state初始化 ==========
 if "page_mode" not in st.session_state:
     st.session_state["page_mode"] = "home"
@@ -229,7 +242,6 @@ def run_predict_logic(monthly_df, pred_months, alpha, w_yoy, w_qoq, outlier_th, 
     }
     return df_detail, grp_sum, df_log, meta_info
 
-
 # =====================【首页】=====================
 if st.session_state.page_mode == "home":
     st.title("进销存预测")
@@ -298,12 +310,20 @@ if st.session_state.page_mode == "history_detail":
         df_detail_show = df_detail[df_detail["商品类别(系列)"] == pick_cate]
     else:
         df_detail_show = df_detail
+
+    # 渲染前清洗
+    df_detail_show = clean_for_arrow(df_detail_show)
     st.dataframe(df_detail_show, width="stretch", height=420)
+
     st.subheader("2、按产品类别汇总预测")
-    st.dataframe(df_cate_summary, width="stretch")
+    df_cate_summary_show = clean_for_arrow(df_cate_summary)
+    st.dataframe(df_cate_summary_show, width="stretch")
+
     if not df_outlier_log.empty:
         st.subheader("3、突增异常标记日志")
-        st.dataframe(df_outlier_log, width="stretch")
+        df_log_show = clean_for_arrow(df_outlier_log)
+        st.dataframe(df_log_show, width="stretch")
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_detail.to_excel(writer, sheet_name="型号明细预测", index=False)
@@ -478,13 +498,18 @@ if upload_ship is not None:
         isp_df, proj_df, series_factor
     )
 
+    # 存入历史记录前清洗
+    df_total_detail_saved = clean_for_arrow(df_total_detail.copy())
+    df_cate_summary_saved = clean_for_arrow(df_cate_summary.copy())
+    df_outlier_log_saved = clean_for_arrow(df_outlier_log.copy())
+
     new_hist_item = {
         "run_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "mode_name": mode_title_map[current_mode],
         "upload_filename": upload_ship.name,
-        "df_detail": df_total_detail.copy(),
-        "df_summary": df_cate_summary.copy(),
-        "df_log": df_outlier_log.copy(),
+        "df_detail": df_total_detail_saved,
+        "df_summary": df_cate_summary_saved,
+        "df_log": df_outlier_log_saved,
         "meta": meta
     }
     hist_arr = st.session_state["predict_history"]
@@ -501,14 +526,17 @@ if upload_ship is not None:
         df_detail_show = df_total_detail[df_total_detail["商品类别(系列)"] == pick_cate]
     else:
         df_detail_show = df_total_detail
+    df_detail_show = clean_for_arrow(df_detail_show)
     st.dataframe(df_detail_show, width="stretch", height=420)
 
     st.subheader("2、按产品类别汇总预测")
-    st.dataframe(df_cate_summary, width="stretch")
+    df_sum_show = clean_for_arrow(df_cate_summary)
+    st.dataframe(df_sum_show, width="stretch")
 
     if not df_outlier_log.empty:
         st.subheader("3、突增异常标记日志")
-        st.dataframe(df_outlier_log, width="stretch")
+        df_log_show = clean_for_arrow(df_outlier_log)
+        st.dataframe(df_log_show, width="stretch")
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
