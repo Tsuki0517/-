@@ -200,7 +200,7 @@ def replace_outlier(seq: np.ndarray, out_idx):
     return arr
 
 def load_ship_data(file):
-    df_raw = pd.read_excel(file)
+    df_raw = pd.read_excel(file, engine="openpyxl")
     df_raw.columns = [str(c).strip() for c in df_raw.columns]
     df_raw["商品规格"] = df_raw["商品规格"].apply(clean_spec)
     df_raw["商品类别"] = df_raw["商品类别"].fillna("未知系列").astype(str)
@@ -487,7 +487,7 @@ with st.sidebar:
 
 # ISP加载存入session
 if upload_isp is not None:
-    isp_raw = pd.read_excel(upload_isp)
+    isp_raw = pd.read_excel(upload_isp, engine="openpyxl")
     # 修复：数字表头转字符串再strip
     isp_raw.columns = [str(c).strip() for c in isp_raw.columns]
     first_col = isp_raw.columns[0]
@@ -498,7 +498,7 @@ if upload_isp is not None:
 # 项目增量解析
 proj_dict = {}
 if upload_project is not None:
-    proj_raw = pd.read_excel(upload_project)
+    proj_raw = pd.read_excel(upload_project, engine="openpyxl")
     proj_raw.columns = [str(c).strip() for c in proj_raw.columns]
     need_cols = {"完整型号","需求月份","项目需求数量","已出数量"}
     if need_cols.issubset(set(proj_raw.columns)):
